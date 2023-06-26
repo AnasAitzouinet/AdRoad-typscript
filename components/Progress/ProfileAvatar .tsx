@@ -153,7 +153,9 @@ const HandleUploadID = async (event: React.ChangeEvent<HTMLInputElement>) => {
       setLoading(false);
     }
   }
-
+  if (!user) {
+    return <div>Loading...</div>; // Or handle the case where the user is undefined/null
+  }
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 lg:flex-row-reverse">
       {/* Contact information */}

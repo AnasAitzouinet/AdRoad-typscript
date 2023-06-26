@@ -1,5 +1,9 @@
 "use client";
-import { EnvelopeIcon, PhoneIcon } from "@heroicons/react/24/outline";
+import {
+  EnvelopeIcon,
+  PhoneIcon,
+  PhotoIcon,
+} from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useState } from "react";
 import { Database } from "@/types/supabase";
 import {
@@ -9,15 +13,17 @@ import {
 import { MoonLoader, ScaleLoader } from "react-spinners";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
+import Avatar from "@/app/auth/account/avatar";
 
 const ProfileAvatar = ({ session }: { session: Session | null }) => {
   const supabase = createClientComponentClient<Database>();
   const [loading, setLoading] = useState(false);
-
+  const [avatar_url, setAvatarUrl] = useState<string | null>(null);
   const user = session?.user;
   const Router = useRouter();
   const [progress, setProgress] = useState(1);
-
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [IdFiles, setIdFiles] = useState<File[]>([]);
 
   const handlePrevClick = () => {
     sessionStorage.setItem("progress", "0");
@@ -25,8 +31,128 @@ const ProfileAvatar = ({ session }: { session: Session | null }) => {
     Router.refresh();
   };
 
+  const handleNextClick = () => {
+    sessionStorage.setItem("progress", "2");
+    setProgress(2);
+    Router.refresh();
+  };
+  const getProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      let { data, error, status } = await supabase
+        .from("profiles")
+        .select(`avatar_url`)
+        .eq("id", user?.id)
+        .single();
+
+      if (error && status !== 406) {
+        throw error;
+      }
+
+      if (data) {
+        setAvatarUrl(data.avatar_url);
+      }
+    } catch (error) {
+      alert("Error loading user data!");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase]);
+
+  useEffect(() => {
+    getProfile();
+  }, [user, getProfile]);
+
+const HandleUploadID = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files!);
+    setIdFiles(files);
+    const folderName = user?.id; // Specify the folder name
+    const urls: string[] = [];
+    const filePath = `${folderName}/${files[0].name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("IdCards")
+      .upload(filePath, files[0]);
+    if (uploadError) {
+      console.error("Error uploading file:", uploadError);
+    } else {
+      console.log("File uploaded successfully:", filePath);
+      // Get the public URL of the uploaded file
+      try {
+        const { data } = await supabase.storage
+
+          .from("IdCards")
+          .getPublicUrl(filePath);
+        if (data) {
+          urls.push(data.publicUrl);
+          const userInfoUrlId = sessionStorage.setItem("IdCardUrl", urls[0]);
+        }
+        console.log("File URL:", data.publicUrl);
+      } catch (error) {
+        console.error("Error getting file URL:", error);
+      }
+    }
+  };
 
 
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files!).slice(0, 4);
+    setSelectedFiles(files);
+
+    const folderName = user?.id; // Specify the folder name
+    const urls: string[] = [];
+
+    // Upload each file to the specified folder in Supabase Storage
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        console.error("File is too large:", file.name);
+        continue;
+      }
+      const filePath = `${folderName}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("ImageCars")
+        .upload(filePath, file);
+      if (uploadError) {
+        console.error("Error uploading file:", uploadError);
+      } else {
+        console.log("File uploaded successfully:", filePath);
+        // Get the public URL of the uploaded file
+        try {
+          const { data } = await supabase.storage
+            .from("ImageCars")
+            .getPublicUrl(filePath);
+          console.log("File URL:", data.publicUrl);
+          urls.push(data.publicUrl);
+        } catch (error) {
+          console.error("Error getting file URL:", error);
+        }
+      }
+    }
+    const userInfoUrl = sessionStorage.setItem(
+      "userInfUrl",
+      JSON.stringify(urls)
+    );
+  };
+
+  async function updateProfile({ avatar_url }: { avatar_url: string | null }) {
+    try {
+      setLoading(true);
+
+      let { error } = await supabase.from("profiles").upsert({
+        id: user?.id as string,
+        avatar_url,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      alert("Avatar Got Uploaded!");
+    } catch (error) {
+      alert("Error updating the data!");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 lg:flex-row-reverse">
@@ -227,7 +353,84 @@ const ProfileAvatar = ({ session }: { session: Session | null }) => {
           method="POST"
           className="mt-6 grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8"
         >
-    
+          <div>
+            <label
+              htmlFor="Full-name"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Upload Your avatar:
+            </label>
+            <div className="mt-3 ">
+              <Avatar
+                uid={user.id}
+                url={avatar_url}
+                size={150}
+                onUpload={(url) => {
+                  setAvatarUrl(url);
+                  updateProfile({ avatar_url: url });
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor="cover-photo"
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              Cover photo
+            </label>
+            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+              <div className="text-center">
+                <PhotoIcon
+                  className="mx-auto h-12 w-12 text-gray-300"
+                  aria-hidden="true"
+                />
+                <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                  <label
+                    htmlFor="file-upload"
+                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500"
+                  >
+                    <span>Upload files (Max 4)</span>
+                    <input
+                      id="file-upload"
+                      name="file-upload"
+                      type="file"
+                      className="sr-only"
+                      multiple
+                      onChange={handleFileUpload}
+                      accept=".png, .jpg, .jpeg, .gif"
+                      // You can adjust the accepted file types as needed
+                    />
+                  </label>
+                </div>
+                <p className="text-xs leading-5 text-gray-600">
+                  PNG, JPG, GIF up to 10MB
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-row gap-4 justify-start w-full">
+            <label
+            className=" text-lg font-medium text-gray-900">
+              Upload Your Identity Card:
+            </label>
+            <label
+              htmlFor="file-uploadId"
+              className="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              {loading ? (
+                <ScaleLoader height={20} width={3} color="white" />
+              ) : (
+                "ID Card"
+              )}
+            </label>
+            <input
+              type="file"
+              id="file-uploadId"
+              className="hidden"
+              onChange={HandleUploadID}
+            />
+          </div>
           <div className=" lg:col-span-2  grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8">
             <button
               type="button"
@@ -235,17 +438,25 @@ const ProfileAvatar = ({ session }: { session: Session | null }) => {
               className={`mt-2 inline-flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto
             ${progress === 0 ? "hidden" : ""}`}
             >
-      
-              {loading ? <ScaleLoader height={20} width={3} color="white" /> : "Previous" }
+              {loading ? (
+                <ScaleLoader height={20} width={3} color="white" />
+              ) : (
+                "Previous"
+              )}
             </button>
-            {/* <button
+            <button
               type="button"
               disabled={loading}
+              onClick={handleNextClick}
               className={`mt-2 inline-flex w-full items-center  justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto
             ${progress === 2 ? "hidden" : ""}`}
             >
-              {loading ? <ScaleLoader height={20} width={3} color="white" /> : "Next"}
-            </button> */}
+              {loading ? (
+                <ScaleLoader height={20} width={3} color="white" />
+              ) : (
+                "Next"
+              )}
+            </button>
           </div>
         </form>
       </div>

@@ -16,7 +16,7 @@ export interface Database {
           id: number
           ID_card: string | null
           image_path: string[] | null
-          phone_number: number | null
+          phone_number: string | null
           user_id: string | null
           Verified_Driver: boolean | null
           age: number | null
@@ -28,10 +28,10 @@ export interface Database {
           id?: number
           ID_card?: string | null
           image_path?: string[] | null
-          phone_number?: number | null
+          phone_number?: string | null
           user_id?: string | null
           Verified_Driver?: boolean | null
-          age: number | null
+          age?: number | null
         }
         Update: {
           Adresse?: string | null
@@ -39,10 +39,10 @@ export interface Database {
           id?: number
           ID_card?: string | null
           image_path?: string[] | null
-          phone_number?: number | null
+          phone_number?: string | null
           user_id?: string | null
           Verified_Driver?: boolean | null
-          age: number | null
+          age?: number | null
 
         }
         Relationships: [

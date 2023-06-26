@@ -16,11 +16,10 @@ const Profile = ({ session }: { session: Session | null }) => {
   const [fullname, setFullname] = useState<string | null>(null);
   const [adress, setAdress] = useState<string | null>(null);
   const [Age, setAge] = useState<number | null>(null);
-  const [phone_number, setPhone_number] = useState<number | null>(null);
+  const [phone_number, setPhone_number] = useState<string | null>(null);
   const user = session?.user;
   const Router = useRouter();
   const [progress, setProgress] = useState(0);
-
 
   const handlePrevClick = () => {
     sessionStorage.setItem("progress", "0");
@@ -37,7 +36,11 @@ const Profile = ({ session }: { session: Session | null }) => {
         .eq("id", user?.id)
         .single();
 
-      let {data: data2, error: error2, status: status2} = await supabase
+      let {
+        data: data2,
+        error: error2,
+        status: status2,
+      } = await supabase
         .from("Drivers")
         .select(`Adresse, phone_number,age`)
         .eq("user_id", user?.id)
@@ -50,12 +53,11 @@ const Profile = ({ session }: { session: Session | null }) => {
         throw error2;
       }
 
-      if (data && data2 ) {
+      if (data && data2) {
         setFullname(data.full_name);
-        setAdress(data2.Adresse );
-        setPhone_number(data2.phone_number);
+        setAdress(data2.Adresse);
+        setPhone_number(data2?.phone_number);
         setAge(data2.age);
-
       }
     } catch (error) {
       alert("Error loading user data!");
@@ -76,28 +78,19 @@ const Profile = ({ session }: { session: Session | null }) => {
   }: {
     fullname: string | null;
     adress: string | null;
-    phone_number: number | null;
+    phone_number: string | null;
     age: number | null;
   }) {
     try {
       setLoading(true);
 
-      let { error } = await supabase.from("profiles").upsert({
-        id: user?.id as string,
+      const userInfo = {
         full_name: fullname,
-        updated_at: new Date().toISOString(),
-      });
-
-      let { error: error2 } = await supabase.from("Drivers").upsert({
-        user_id: user?.id as string,
         Adresse: adress,
         phone_number: phone_number,
-        age: age,
-        created_at: new Date().toISOString(),
-      });
-
-      if (error || error2) throw new Error(error?.message || error2?.message);
-
+        age: Age,
+      };
+      sessionStorage.setItem("userInfo", JSON.stringify(userInfo));
       const Toast = Swal.mixin({
         toast: true,
         position: "top-end",
@@ -109,16 +102,17 @@ const Profile = ({ session }: { session: Session | null }) => {
           toast.addEventListener("mouseleave", Swal.resumeTimer);
         },
       });
-  
+
       Toast.fire({
-        icon: "success" ,
+        icon: "success",
         title: "Profile updated successfully",
       }).then(() => {
         //create a session variable to set progress to 1
         sessionStorage.setItem("progress", "1");
         setProgress(1);
+        Router.refresh();
       });
-    } catch (error : any ) {
+    } catch (error: any) {
       const Toast = Swal.mixin({
         toast: true,
         position: "top-end",
@@ -130,17 +124,19 @@ const Profile = ({ session }: { session: Session | null }) => {
           toast.addEventListener("mouseleave", Swal.resumeTimer);
         },
       });
-  
+
       Toast.fire({
-        icon: "error" ,
-        title: (error.message == 'duplicate key value violates unique constraint "Drivers_user_id_key"') ? "You already have a profile " : error.message,
+        icon: "error",
+        title:
+          error.message ==
+          'duplicate key value violates unique constraint "Drivers_user_id_key"'
+            ? "You already have a profile "
+            : error.message,
       }).then(() => {
         sessionStorage.setItem("progress", "1");
         setProgress(1);
         Router.refresh();
-
       });
-
     } finally {
       setLoading(false);
     }
@@ -415,14 +411,14 @@ const Profile = ({ session }: { session: Session | null }) => {
             </div>
             <div className="mt-1">
               <input
-                type="text"
+                type="tel"
                 name="phone"
                 id="phone"
                 autoComplete="tel"
                 value={phone_number || ""}
-                onChange={(e) => setPhone_number(Number(e.target.value))}
+                onChange={(e) => setPhone_number(e.target.value)}
                 required
-                className="block w-full rounded-md border-gray-300 py-3 px-4 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full border rounded-md border-gray-300 py-3 px-4 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 aria-describedby="phone-optional"
               />
             </div>
@@ -453,19 +449,26 @@ const Profile = ({ session }: { session: Session | null }) => {
               className={`mt-2 inline-flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto
             ${progress === 0 ? "hidden" : ""}`}
             >
-      
-              {loading ? <ScaleLoader height={20} width={3} color="white" /> : "Previous" }
+              {loading ? (
+                <ScaleLoader height={20} width={3} color="white" />
+              ) : (
+                "Previous"
+              )}
             </button>
             <button
               type="button"
               onClick={() =>
-                updateProfile({ fullname, phone_number, adress ,age:Age})
+                updateProfile({ fullname, phone_number, adress, age: Age })
               }
               disabled={loading}
               className={`mt-2 inline-flex w-full items-center  justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto
             ${progress === 2 ? "hidden" : ""}`}
             >
-              {loading ? <ScaleLoader height={20} width={3} color="white" /> : "Next"}
+              {loading ? (
+                <ScaleLoader height={20} width={3} color="white" />
+              ) : (
+                "Next"
+              )}
             </button>
           </div>
         </form>
